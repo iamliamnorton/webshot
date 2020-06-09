@@ -42,6 +42,8 @@ module Webshot
         quality = opts.fetch(:quality, 85)
         full = opts.fetch(:full, true)
         selector = opts.fetch(:selector, nil)
+        # https://github.com/vitalie/webshot/pull/18
+        nothumb = opts.fetch(:nothumb, false)
         allowed_status_codes = opts.fetch(:allowed_status_codes, [])
 
         # Reset session before visiting url
@@ -63,30 +65,33 @@ module Webshot
         tmp = Tempfile.new(["webshot", ".png"])
         tmp.close
         begin
-          screenshot_opts = { full: full }
-          screenshot_opts = screenshot_opts.merge({ selector: selector }) if selector
+          # https://github.com/vitalie/webshot/pull/31
+          screenshot_opts = selector ? { selector: selector } : { full: full }
 
           # Save screenshot to file
-          page.driver.save_screenshot(tmp.path, screenshot_opts)
-
-          # Resize screenshot
-          thumb = MiniMagick::Image.open(tmp.path)
-          if block_given?
-            # Customize MiniMagick options
-            yield thumb
+          if nothumb
+            page.driver.save_screenshot(path, screenshot_opts)
           else
-            thumb.combine_options do |c|
-              c.thumbnail "#{width}x"
-              c.background "white"
-              c.extent "#{width}x#{height}"
-              c.gravity gravity
-              c.quality quality
-            end
-          end
+            page.driver.save_screenshot(tmp.path, screenshot_opts)
 
-          # Save thumbnail
-          thumb.write path
-          thumb
+            # Resize screenshot
+            thumb = MiniMagick::Image.open(tmp.path)
+            if block_given?
+              # Customize MiniMagick options
+              yield thumb
+            else
+              thumb.combine_options do |c|
+                c.thumbnail "#{width}x"
+                c.background "white"
+                c.extent "#{width}x#{height}"
+                c.gravity gravity
+                c.quality quality
+              end
+            end
+            # Save thumbnail
+            thumb.write path
+            thumb
+          end
         ensure
           tmp.unlink
         end
