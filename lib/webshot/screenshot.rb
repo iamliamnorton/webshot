@@ -50,6 +50,9 @@ module Webshot
         Capybara.reset_sessions! unless @session_started
         @session_started = false
 
+        # Clear memory cache between use
+        page.driver.clear_memory_cache
+
         # Open page
         visit url
 
